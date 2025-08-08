@@ -11,6 +11,7 @@ import { ArrowLeft, User, Settings, Download, Shield } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/lib/store";
 import type { Profile } from "@/lib/types";
+import { EditorPreferences } from "./editor-preferences";
 
 interface SettingsLayoutProps {
   user: any; // Supabase user type
@@ -302,17 +303,33 @@ export function SettingsLayout({ user }: SettingsLayoutProps) {
 
           {/* 偏好设置 */}
           <TabsContent value="preferences">
-            <Card>
-              <CardHeader>
-                <CardTitle>偏好设置</CardTitle>
-                <CardDescription>
-                  自定义您的使用体验
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">偏好设置功能即将推出...</p>
-              </CardContent>
-            </Card>
+            <div className="space-y-6">
+              {/* 编辑器设置 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>编辑器设置</CardTitle>
+                  <CardDescription>
+                    自定义编辑器的行为和外观
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <EditorPreferences />
+                </CardContent>
+              </Card>
+              
+              {/* 主题设置 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>外观设置</CardTitle>
+                  <CardDescription>
+                    自定义应用的主题和外观
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">主题设置功能即将推出...</p>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           {/* 数据管理 */}

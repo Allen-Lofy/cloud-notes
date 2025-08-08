@@ -1,11 +1,13 @@
 "use client";
 
+import { memo } from "react";
 import { useAppStore } from "@/lib/store";
-import { MarkdownPreview } from "./markdown-preview";
+import { DebouncedMarkdownPreview } from "./debounced-markdown-preview";
 import { FileInfo } from "./file-info";
 import { Eye } from "lucide-react";
 
-export function PreviewPanel() {
+// 使用React.memo优化预览面板性能
+export const PreviewPanel = memo(function PreviewPanel() {
   const { editor } = useAppStore();
   const { activeFile, content } = editor;
 
@@ -38,7 +40,7 @@ export function PreviewPanel() {
         <div className="h-full min-w-0">
           {activeFile.type === "markdown" ? (
             <div className="markdown-preview-content w-full min-w-0">
-              <MarkdownPreview content={content} />
+              <DebouncedMarkdownPreview content={content} />
             </div>
           ) : (
             <FileInfo file={activeFile} />
@@ -47,4 +49,4 @@ export function PreviewPanel() {
       </div>
     </div>
   );
-}
+});

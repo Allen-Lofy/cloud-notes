@@ -248,3 +248,22 @@ export interface ThemeConfig {
   fontSize: number;
   editorTheme: string;
 }
+
+// 编辑器设置
+export interface EditorSettings {
+  autoSaveInterval: number; // 自动保存间隔，单位：毫秒
+  enableAutoSave: boolean; // 是否启用自动保存
+  previewDelay: number; // 预览延迟，单位：毫秒
+  enableLineNumbers: boolean; // 是否显示行号
+  enableMinimap: boolean; // 是否显示迷你地图
+  enableWordWrap: boolean; // 是否启用自动换行
+  fontSize: number; // 编辑器字体大小
+  fontFamily: string; // 编辑器字体族
+}
+
+// 用户偏好设置
+export interface UserPreferences {
+  editor: EditorSettings;
+  theme: ThemeConfig;
+  language: 'zh-CN' | 'en-US';
+}

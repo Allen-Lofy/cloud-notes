@@ -334,7 +334,7 @@ export function FileTreeItem({ node, level, onRefresh }: FileTreeItemProps) {
       <Dialog open={isMoveDialogOpen} onOpenChange={setIsMoveDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>移动 "{node.name}"</DialogTitle>
+            <DialogTitle>移动 &quot;{node.name}&quot;</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="text-sm text-muted-foreground">

@@ -1,8 +1,11 @@
 import { create } from "zustand";
 import { devtools, persist, createJSONStorage } from "zustand/middleware";
-import type { User, Profile, Folder, File, EditorState, AppState } from "./types";
+import type { User, Profile, Folder, File, EditorState, AppState, UserPreferences, EditorSettings } from "./types";
 
 interface AppStore extends AppState {
+  // User preferences
+  preferences: UserPreferences;
+  
   // Actions
   setUser: (user: User | null) => void;
   setProfile: (profile: Profile | null) => void;
@@ -39,6 +42,11 @@ interface AppStore extends AppState {
   addFile: (file: File) => void;
   updateFile: (fileId: string, updates: Partial<File>) => void;
   removeFile: (fileId: string) => void;
+  
+  // Preferences actions
+  updateEditorSettings: (settings: Partial<EditorSettings>) => void;
+  updatePreferences: (preferences: Partial<UserPreferences>) => void;
+  resetPreferences: () => void;
 }
 
 export const useAppStore = create<AppStore>()(
@@ -66,6 +74,28 @@ export const useAppStore = create<AppStore>()(
           save: false,
         },
         errors: [],
+        
+        // Default preferences
+        preferences: {
+          editor: {
+            autoSaveInterval: 15000, // 15秒自动保存
+            enableAutoSave: true,
+            previewDelay: 200,
+            enableLineNumbers: true,
+            enableMinimap: false,
+            enableWordWrap: true,
+            fontSize: 14,
+            fontFamily: '"JetBrains Mono", "Fira Code", Consolas, Monaco, monospace',
+          },
+          theme: {
+            mode: 'system',
+            primaryColor: '#3b82f6',
+            fontFamily: 'system-ui, sans-serif',
+            fontSize: 14,
+            editorTheme: 'vs-dark',
+          },
+          language: 'zh-CN',
+        },
 
         // Actions
         setUser: (user) => set({ user }),
@@ -170,6 +200,41 @@ export const useAppStore = create<AppStore>()(
             selectedFiles: state.selectedFiles.filter(f => f.id !== fileId)
           }));
         },
+
+        // Preferences actions
+        updateEditorSettings: (settings) => set(state => ({
+          preferences: {
+            ...state.preferences,
+            editor: { ...state.preferences.editor, ...settings }
+          }
+        })),
+        
+        updatePreferences: (preferences) => set(state => ({
+          preferences: { ...state.preferences, ...preferences }
+        })),
+        
+        resetPreferences: () => set(state => ({
+          preferences: {
+            editor: {
+              autoSaveInterval: 15000,
+              enableAutoSave: true,
+              previewDelay: 200,
+              enableLineNumbers: true,
+              enableMinimap: false,
+              enableWordWrap: true,
+              fontSize: 14,
+              fontFamily: '"JetBrains Mono", "Fira Code", Consolas, Monaco, monospace',
+            },
+            theme: {
+              mode: 'system',
+              primaryColor: '#3b82f6',
+              fontFamily: 'system-ui, sans-serif',
+              fontSize: 14,
+              editorTheme: 'vs-dark',
+            },
+            language: 'zh-CN',
+          }
+        })),
       }),
       {
         name: "cloud-notes-storage",
@@ -178,6 +243,7 @@ export const useAppStore = create<AppStore>()(
           sidebarOpen: state.sidebarOpen,
           previewPanelOpen: state.previewPanelOpen,
           darkMode: state.darkMode,
+          preferences: state.preferences,
         }),
       }
     ),

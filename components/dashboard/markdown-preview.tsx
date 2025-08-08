@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, memo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import remarkGfm from "remark-gfm";
@@ -12,7 +12,8 @@ interface MarkdownPreviewProps {
   content: string;
 }
 
-export function MarkdownPreview({ content }: MarkdownPreviewProps) {
+// 使用React.memo优化性能，只有在content改变时才重新渲染
+const MarkdownPreviewComponent = memo(function MarkdownPreview({ content }: MarkdownPreviewProps) {
   // 缓存处理的内容 - 正确处理LaTeX环境
   const processedContent = useMemo(() => {
     if (!content.trim()) return "";
@@ -320,4 +321,7 @@ export function MarkdownPreview({ content }: MarkdownPreviewProps) {
       </div>
     </div>
   );
-}
+});
+
+// 导出优化后的组件
+export { MarkdownPreviewComponent as MarkdownPreview };

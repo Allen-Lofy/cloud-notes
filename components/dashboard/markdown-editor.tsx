@@ -6,12 +6,31 @@ import { Editor } from "@monaco-editor/react";
 import { Button } from "@/components/ui/button";
 import { Save, Eye, EyeOff, Download, FileDown } from "lucide-react";
 import { useTheme } from "next-themes";
-// 简单的防抖函数实现
+// 防抖函数实现
 const debounce = (func: Function, wait: number) => {
   let timeout: NodeJS.Timeout;
   return (...args: any[]) => {
     clearTimeout(timeout);
     timeout = setTimeout(() => func.apply(null, args), wait);
+  };
+};
+
+// 节流函数实现
+const throttle = (func: Function, wait: number) => {
+  let timeout: NodeJS.Timeout | null = null;
+  let lastExecTime = 0;
+  return (...args: any[]) => {
+    const currentTime = Date.now();
+    if (currentTime - lastExecTime > wait) {
+      func.apply(null, args);
+      lastExecTime = currentTime;
+    } else if (!timeout) {
+      timeout = setTimeout(() => {
+        func.apply(null, args);
+        lastExecTime = Date.now();
+        timeout = null;
+      }, wait - (currentTime - lastExecTime));
+    }
   };
 };
 
@@ -25,6 +44,7 @@ export function MarkdownEditor() {
   
   const {
     editor,
+    preferences,
     setEditorContent,
     setEditorDirty,
     setPreviewMode,
@@ -59,8 +79,8 @@ export function MarkdownEditor() {
       } finally {
         setLoading("save", false);
       }
-    }, 500), // 减少防抖时间从1000ms到500ms提升响应性
-    [addError, setLoading, setEditorDirty]
+    }, preferences.editor.autoSaveInterval), // 使用配置的自动保存间隔
+    [addError, setLoading, setEditorDirty, preferences.editor.autoSaveInterval]
   );
 
   // PDF导出功能
@@ -137,15 +157,15 @@ export function MarkdownEditor() {
     };
   }, [isDirty, loading.save]);
 
-  // Monaco编辑器选项配置 - 优化性能
+  // Monaco编辑器选项配置 - 使用用户偏好设置
   const editorOptions = useMemo(() => ({
-    minimap: { enabled: false },
+    minimap: { enabled: preferences.editor.enableMinimap },
     scrollBeyondLastLine: false,
-    wordWrap: "on" as const,
-    lineNumbers: "on" as const,
-    fontSize: 14,
+    wordWrap: preferences.editor.enableWordWrap ? "on" as const : "off" as const,
+    lineNumbers: preferences.editor.enableLineNumbers ? "on" as const : "off" as const,
+    fontSize: preferences.editor.fontSize,
     lineHeight: 1.5,
-    fontFamily: '"JetBrains Mono", "Fira Code", Consolas, Monaco, monospace',
+    fontFamily: preferences.editor.fontFamily,
     automaticLayout: true,
     scrollbar: {
       vertical: "auto" as const,
@@ -172,12 +192,25 @@ export function MarkdownEditor() {
     unfoldOnClickAfterEndOfLine: false,
     showUnused: false,
     // 性能优化
-    smoothScrolling: true,
-    cursorSmoothCaretAnimation: "on" as const,
+    smoothScrolling: false, // 关闭平滑滚动以提高性能
+    cursorSmoothCaretAnimation: "off" as const, // 关闭光标动画
     mouseWheelZoom: false,
     fastScrollSensitivity: 5,
-    multiCursorModifier: "alt" as const
-  }), []);
+    multiCursorModifier: "alt" as const,
+    // 增加更多性能优化选项
+    wordBasedSuggestions: "off" as const, // 关闭基于单词的建议
+    parameterHints: {
+      enabled: false // 关闭参数提示
+    },
+    hover: {
+      enabled: false // 关闭悬停提示
+    },
+    links: false, // 关闭链接检测
+    colorDecorators: false, // 关闭颜色装饰器
+    lightbulb: {
+      enabled: "off" // 关闭灯泡提示
+    }
+  }), [preferences.editor]);
 
   // 手动保存
   const handleSave = async () => {
@@ -206,15 +239,17 @@ export function MarkdownEditor() {
     }
   };
 
-  // 内容变化处理
-  const handleEditorChange = (value: string = "") => {
+  // 内容变化处理 - 立即更新状态，只对保存进行防抖
+  const handleEditorChange = useCallback((value: string = "") => {
+    // 立即更新编辑器内容状态，确保状态同步
     setEditorContent(value);
     setEditorDirty(true);
     
-    if (activeFile) {
+    // 只有在启用自动保存时才执行自动保存
+    if (activeFile && preferences.editor.enableAutoSave) {
       debouncedSave(activeFile.id, value);
     }
-  };
+  }, [setEditorContent, setEditorDirty, activeFile, debouncedSave, preferences.editor.enableAutoSave]);
 
   // 键盘快捷键
   useEffect(() => {
@@ -389,30 +424,14 @@ export function MarkdownEditor() {
                 height="100%"
                 language="markdown"
                 theme={theme === "dark" ? "vs-dark" : "vs"}
-                value={content}
+                defaultValue={content}
                 onChange={handleEditorChange}
                 onMount={handleEditorDidMount}
                 options={editorOptions}
                 loading="正在加载编辑器..."
-                beforeMount={(monaco) => {
-                  // 预配置Monaco以避免初始化错误
-                  try {
-                    monaco.editor.defineTheme('custom-dark', {
-                      base: 'vs-dark',
-                      inherit: true,
-                      rules: [],
-                      colors: {}
-                    });
-                  } catch (error) {
-                    console.warn('Monaco主题配置警告:', error);
-                  }
-                }}
-                onValidate={(markers) => {
-                  // 处理验证标记，避免错误
-                  if (markers.length > 0) {
-                    console.debug('Monaco验证标记:', markers);
-                  }
-                }}
+                keepCurrentModel={true} // 保持当前模型，避免重新创建
+                // 使用key来确保文件切换时重新创建编辑器实例
+                key={activeFile?.id}
               />
             )}
           </div>
