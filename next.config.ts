@@ -65,6 +65,9 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
+  
+  // 支持 Docker 部署的 standalone 输出
+  output: 'standalone',
 };
 
 export default nextConfig;

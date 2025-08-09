@@ -139,12 +139,12 @@ export function MarkdownEditor() {
     }
   }, [activeFile, content, addError]);
 
-  // 自动保存提醒逻辑
+  // 优化的自动保存提醒逻辑 - 减少依赖
   useEffect(() => {
     let reminderTimeout: NodeJS.Timeout;
     
-    if (isDirty && !loading.save) {
-      // 如果有未保存的更改，30秒后显示提醒
+    if (isDirty && !loading.save && preferences.editor.enableAutoSave) {
+      // 只有在启用自动保存且有未保存更改时才显示提醒
       reminderTimeout = setTimeout(() => {
         setShowAutoSaveReminder(true);
       }, 30000);
@@ -155,7 +155,7 @@ export function MarkdownEditor() {
     return () => {
       if (reminderTimeout) clearTimeout(reminderTimeout);
     };
-  }, [isDirty, loading.save]);
+  }, [isDirty, loading.save, preferences.editor.enableAutoSave]);
 
   // Monaco编辑器选项配置 - 使用用户偏好设置
   const editorOptions = useMemo(() => ({
@@ -209,12 +209,46 @@ export function MarkdownEditor() {
     colorDecorators: false, // 关闭颜色装饰器
     lightbulb: {
       enabled: "off" // 关闭灯泡提示
-    }
+    },
+    // 进一步的性能优化选项
+    bracketPairColorization: {
+      enabled: false // 关闭括号配对着色
+    },
+    guides: {
+      indentation: false, // 关闭缩进参考线
+      bracketPairs: false, // 关闭括号配对参考线
+      bracketPairsHorizontal: false,
+      highlightActiveIndentation: false
+    },
+    unicodeHighlight: {
+      ambiguousCharacters: false, // 关闭Unicode字符高亮
+      invisibleCharacters: false
+    },
+    stickyScroll: {
+      enabled: false // 关闭粘性滚动
+    },
+    inlayHints: {
+      enabled: "off" // 关闭内联提示
+    },
+    overviewRulerLanes: 0, // 隐藏概览标尺
+    hideCursorInOverviewRuler: true, // 隐藏概览标尺中的光标
+    overviewRulerBorder: false, // 隐藏概览标尺边框
+    // 语法高亮优化
+    "semanticHighlighting.enabled": false, // 关闭语义高亮
+    // 减少动画和过渡效果
+    cursorBlinking: "solid", // 减少光标闪烁动画
+    // 关闭代码镜头
+    codeLens: false,
+    // 关闭引用信息
+    referenceInfos: false,
+    // 关闭定义预览
+    definitionLinkOpensInPeek: false
   }), [preferences.editor]);
 
-  // 手动保存
-  const handleSave = async () => {
-    if (!activeFile || !isDirty) return;
+  // 手动保存 - 使用当前内容而不是状态中的内容
+  const handleSave = useCallback(async () => {
+    const currentContent = contentRef.current;
+    if (!activeFile || !isDirtyRef.current) return;
 
     try {
       setLoading("save", true);
@@ -223,7 +257,7 @@ export function MarkdownEditor() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content: currentContent }),
       });
 
       if (!response.ok) {
@@ -231,25 +265,44 @@ export function MarkdownEditor() {
         addError(error.error || "保存失败");
       } else {
         setEditorDirty(false);
+        isDirtyRef.current = false;
       }
     } catch (error) {
       addError("保存失败");
     } finally {
       setLoading("save", false);
     }
-  };
+  }, [activeFile, addError, setLoading, setEditorDirty]);
 
-  // 内容变化处理 - 立即更新状态，只对保存进行防抖
+  // 使用useRef追踪内容，减少状态更新频率
+  const contentRef = useRef(content);
+  const isDirtyRef = useRef(isDirty);
+  
+  // 防抖更新状态 - 减少React重渲染
+  const debouncedStateUpdate = useCallback(
+    debounce((newContent: string, dirty: boolean) => {
+      setEditorContent(newContent);
+      if (dirty !== isDirtyRef.current) {
+        setEditorDirty(dirty);
+        isDirtyRef.current = dirty;
+      }
+    }, 100), // 状态更新防抖100ms
+    [setEditorContent, setEditorDirty]
+  );
+
+  // 内容变化处理 - 减少状态更新频率
   const handleEditorChange = useCallback((value: string = "") => {
-    // 立即更新编辑器内容状态，确保状态同步
-    setEditorContent(value);
-    setEditorDirty(true);
+    // 更新ref中的内容
+    contentRef.current = value;
+    
+    // 防抖更新React状态
+    debouncedStateUpdate(value, true);
     
     // 只有在启用自动保存时才执行自动保存
     if (activeFile && preferences.editor.enableAutoSave) {
       debouncedSave(activeFile.id, value);
     }
-  }, [setEditorContent, setEditorDirty, activeFile, debouncedSave, preferences.editor.enableAutoSave]);
+  }, [debouncedStateUpdate, activeFile, debouncedSave, preferences.editor.enableAutoSave]);
 
   // 键盘快捷键
   useEffect(() => {
@@ -296,29 +349,20 @@ export function MarkdownEditor() {
     }
   };
 
-  // 添加全局错误处理
+  // 简化的错误处理 - 减少全局事件监听开销
   useEffect(() => {
-    const handleError = (event: ErrorEvent) => {
-      if (event.message?.includes('monaco') || event.filename?.includes('monaco')) {
-        console.warn('Monaco相关错误已捕获:', event);
-        event.preventDefault();
-      }
-    };
+    // 只在开发环境下启用详细的错误处理
+    if (process.env.NODE_ENV === 'development') {
+      const handleError = (event: ErrorEvent) => {
+        if (event.message?.includes('monaco') || event.filename?.includes('monaco')) {
+          console.warn('Monaco相关错误已捕获:', event);
+          event.preventDefault();
+        }
+      };
 
-    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      if (event.reason?.message?.includes('monaco')) {
-        console.warn('Monaco相关Promise拒绝已捕获:', event.reason);
-        event.preventDefault();
-      }
-    };
-
-    window.addEventListener('error', handleError);
-    window.addEventListener('unhandledrejection', handleUnhandledRejection);
-
-    return () => {
-      window.removeEventListener('error', handleError);
-      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
-    };
+      window.addEventListener('error', handleError, { passive: true });
+      return () => window.removeEventListener('error', handleError);
+    }
   }, []);
 
   if (!activeFile) {

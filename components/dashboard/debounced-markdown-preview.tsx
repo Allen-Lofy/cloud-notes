@@ -19,14 +19,20 @@ const DebouncedMarkdownPreview = memo(function DebouncedMarkdownPreview({
   const [debouncedContent, setDebouncedContent] = useState(content);
 
   useEffect(() => {
+    // 如果内容没有实际变化，不需要更新
+    if (content === debouncedContent) return;
+    
     const timer = setTimeout(() => {
       setDebouncedContent(content);
     }, actualDelay);
 
     return () => clearTimeout(timer);
-  }, [content, actualDelay]);
+  }, [content, actualDelay, debouncedContent]);
 
   return <MarkdownPreview content={debouncedContent} />;
+}, (prevProps, nextProps) => {
+  // 自定义比较函数，只有内容真正改变时才重新渲染
+  return prevProps.content === nextProps.content && prevProps.delay === nextProps.delay;
 });
 
 export { DebouncedMarkdownPreview };
